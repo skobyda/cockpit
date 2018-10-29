@@ -19,89 +19,158 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import { show_modal_dialog } from 'cockpit-components-dialog.jsx';
+import {
+    vmId
+} from "../helpers.es6";
+import {
+    Alert,
+    Button,
+    ListGroupItem,
+    ListGroup,
+    Grid,
+    Modal
+} from 'patternfly-react';
 import { deleteVm } from '../actions/provider-actions.es6';
 
 import './deleteDialog.css';
 
 const _ = cockpit.gettext;
 
-const DeleteDialogBody = ({ values, onChange }) => {
-    function disk_row(disk) {
-        return (
-            <tr key={disk.target}>
-                <td>
-                    <input type="checkbox" checked={disk.checked}
-                           onChange={(event) => {
-                               disk.checked = event.target.checked;
-                               onChange();
-                           }} />
-                </td>
-                <td>{disk.file}</td>
-                <td>{disk.target}</td>
-            </tr>
-        );
+function DiskRow(props) {
+    return (
+        <ListGroupItem disabled={false}>
+            <Grid.Col sm={1}>
+                <input type="checkbox" checked={props.disk.checked} onChange={e => props.onChange(props.disk, e.target.checked)} />
+            </Grid.Col>
+            <Grid.Col sm={8}>
+                {props.disk.file}
+            </Grid.Col>
+            <Grid.Col sm={3}>
+                {props.disk.target}
+            </Grid.Col>
+        </ListGroupItem>
+    );
+}
+
+export class DeleteDialog extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            showModal: false,
+            dialogError: undefined,
+            disks: [],
+            destroy: props.vm.state == 'running',
+        };
+
+        let vm = props.vm;
+        Object.keys(vm.disks).sort()
+                .forEach(t => {
+                    let d = vm.disks[t];
+                    if (d.type == 'file' && d.source.file)
+                        this.state.disks.push({ target: d.target, file: d.source.file, checked: !d.readonly });
+                });
+
+        this.open = this.open.bind(this);
+        this.close = this.close.bind(this);
+        this.save = this.save.bind(this);
+        this.onValueChanged = this.onValueChanged.bind(this);
+        this.onDiskCheckedChanged = this.onDiskCheckedChanged.bind(this);
     }
 
-    let alert = null;
-    if (values.destroy)
-        alert = <p>{_("The VM is running and will be forced off before deletion.")}</p>;
+    onDiskCheckedChanged(disk, checked) {
+        let disks = this.state.disks;
+        disks.forEach(d => {
+            if (d == disk)
+                d.checked = checked;
+        });
 
-    let disks = null;
-    if (values.disks.length > 0)
-        disks = (
-            <div>
-                <p>{_("Delete associated storage files:")}</p>
-                <table className="table delete-dialog-disks">
-                    <tbody>
-                        { values.disks.map(disk_row) }
-                    </tbody>
-                </table>
+        this.setState(disks: disks);
+    }
+
+    onValueChanged(key, value) {
+        const stateDelta = { [key]: value };
+
+        this.setState(stateDelta);
+    }
+
+    dialogErrorSet(text) {
+        this.setState({ dialogError: text });
+    }
+
+    dialogErrorDismiss() {
+        this.setState({ dialogError: undefined });
+    }
+
+    close() {
+        this.setState({ showModal: false });
+        this.dialogErrorDismiss();
+    }
+
+    open() {
+        this.setState({ showModal: true });
+    }
+
+    save() {
+        const { dispatch, vm } = this.props;
+        let storage = [ ];
+
+        this.state.disks.forEach(d => { if (d.checked) storage.push(d.file); });
+        dispatch(deleteVm(vm, { destroy: this.state.destroy, storage: storage }));
+    }
+
+    render () {
+        const vm = this.props.vm;
+
+        const idPrefix = vmId(vm.name);
+        let caution = null;
+
+        if (this.state.destroy) {
+            caution = (<Alert> {_("The VM is running and will be forced off before deletion.")} </Alert>);
+        }
+
+        let defaultBody = null;
+        if (this.state.disks.length > 0) {
+            defaultBody = (
+                <div>
+                    <p>{_("Delete associated storage files:")}</p>
+                    <ListGroup>
+                        { this.state.disks.map((disk, i) => {
+                            return <DiskRow disk={disk} key={disk.file} onChange={this.onDiskCheckedChanged} />;
+                        })}
+                    </ListGroup>
+                </div>
+            );
+        }
+
+        return (
+            <div id={`${idPrefix}-link-dialog-full`}>
+                <button key='action-delete' className="btn btn-danger" id={`${idPrefix}-delete`}
+                        onClick={this.open}>
+                    {_("Delete")}
+                </button>
+
+                <Modal id={`${idPrefix}-edit-dialog-modal-window`} show={this.state.showModal} onHide={this.close} className='nic-edit'>
+                    <Modal.Header>
+                        <Modal.CloseButton onClick={this.close} />
+                        <Modal.Title> {cockpit.format(_("Confirm deletion of $0"), vm.name)} </Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        {caution}
+                        {defaultBody}
+                        {this.state.dialogError && (<Alert onDismiss={this.dialogErrorDismiss}> {this.state.dialogError} </Alert>)}
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button id={`${idPrefix}-edit-dialog-cancel`} bsStyle='default' className='btn-cancel' onClick={this.close}>
+                            {_("Cancel")}
+                        </Button>
+                        <Button id={`${idPrefix}-edit-dialog-save`} bsStyle='danger' onClick={this.save}>
+                            {_("Delete")}
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
             </div>
         );
-
-    return (
-        <div className="modal-body">
-            {alert}
-            {disks}
-        </div>
-    );
-};
-
-export function deleteDialog(vm, dispatch) {
-    let values = {
-        destroy: false,
-        disks: [ ]
-    };
-
-    Object.keys(vm.disks).sort()
-            .forEach(t => {
-                let d = vm.disks[t];
-                if (d.type == 'file' && d.source.file)
-                    values.disks.push({ target: d.target, file: d.source.file, checked: !d.readonly });
-            });
-
-    if (vm.state == 'running')
-        values.destroy = true;
-
-    function body_props() {
-        return {
-            title: cockpit.format(_("Confirm deletion of $0"), vm.name),
-            body: <DeleteDialogBody values={values} onChange={() => dlg.setProps(body_props())} />
-        };
     }
-
-    let dlg = show_modal_dialog(
-        body_props(),
-        { actions: [
-            { caption: _("Delete"),
-              style: 'danger',
-              clicked: () => {
-                  let storage = [ ];
-                  values.disks.forEach(d => { if (d.checked) storage.push(d.file); });
-                  return dispatch(deleteVm(vm, { destroy: values.destroy, storage: storage }));
-              }
-            }
-        ]
-        });
 }
+
+export default DeleteDialog;
