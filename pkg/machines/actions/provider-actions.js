@@ -23,6 +23,7 @@ import { logDebug } from '../helpers.js';
 import { virt } from '../provider.js';
 import {
     ATTACH_DISK,
+    CHANGE_NETWORK_AUTOSTART,
     CHANGE_NETWORK_SETTINGS,
     CHANGE_NETWORK_STATE,
     CHANGE_VM_AUTOSTART,
@@ -69,6 +70,10 @@ import {
  */
 export function attachDisk({ connectionName, poolName, volumeName, format, target, permanent, hotplug, vmName, vmId }) {
     return virt(ATTACH_DISK, { connectionName, poolName, volumeName, format, target, permanent, hotplug, vmName, vmId });
+}
+
+export function changeNetworkAutostart({ network, autostart }) {
+    return virt(CHANGE_NETWORK_AUTOSTART, { networkName: network.name, connectionName: network.connectionName, autostart });
 }
 
 export function changeNetworkSettings({ vm, macAddress, networkType, networkSource, networkModel }) {
