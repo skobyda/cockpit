@@ -39,6 +39,7 @@ import {
 
 import {
     deleteUnlistedVMs,
+    undefineNetwork,
     undefineStoragePool,
     undefineVm,
     updateOrAddNetwork,
@@ -126,6 +127,12 @@ const Enum = {
     VIR_STORAGE_POOL_EVENT_CREATED: 4,
     VIR_STORAGE_POOL_EVENT_DELETED: 5,
     VIR_STORAGE_POOL_EVENT_LAST: 6,
+    // Networks Event Lifecycle Type
+    VIR_NETWORK_EVENT_DEFINED: 0,
+    VIR_NETWORK_EVENT_UNDEFINED: 1,
+    VIR_NETWORK_EVENT_STARTED: 2,
+    VIR_NETWORK_EVENT_STOPPED: 3,
+    VIR_NETWORK_EVENT_LAST: 4,
 };
 
 let LIBVIRT_DBUS_PROVIDER = {};
@@ -972,6 +979,9 @@ function startEventMonitor(dispatch, connectionName, libvirtServiceName) {
     /* Handlers for domain events */
     startEventMonitorDomains(connectionName, dispatch);
 
+    /* Handlers for network events */
+    startEventMonitorNetworks(connectionName, dispatch);
+
     /* Handlers for storage pool events */
     startEventMonitorStoragePools(connectionName, dispatch);
 }
@@ -1083,6 +1093,43 @@ function startEventMonitorLibvirtd(connectionName, dispatch, libvirtServiceName)
             }
         );
     }
+}
+
+function startEventMonitorNetworks(connectionName, dispatch) {
+    dbus_client(connectionName).subscribe(
+        { interface: 'org.libvirt.Connect', member: 'NetworkEvent' },
+        (path, iface, signal, args) => {
+            let objPath = args[0];
+            let eventType = args[1];
+
+            switch (eventType) {
+            case Enum.VIR_NETWORK_EVENT_DEFINED:
+            case Enum.VIR_NETWORK_EVENT_STARTED:
+            case Enum.VIR_NETWORK_EVENT_STOPPED:
+                dispatch(getNetwork({ connectionName, id:objPath }));
+                break;
+            case Enum.VIR_NETWORK_EVENT_UNDEFINED:
+                dispatch(undefineNetwork({ connectionName, id:objPath }));
+                break;
+            default:
+                logDebug(`handle Network on ${connectionName}: ignoring event ${signal}`);
+            }
+        }
+    );
+
+    /* Subscribe to signals on Network Interface */
+    dbus_client(connectionName).subscribe(
+        { interface: 'org.libvirt.Network' },
+        (path, iface, signal, args) => {
+            switch (signal) {
+            case 'Refresh':
+            /* These signals imply possible changes in what we display, so re-read the state */
+                dispatch(getNetwork({ connectionName, id:path }));
+                break;
+            default:
+                logDebug(`handleEvent Network on ${connectionName} : ignoring event ${signal}`);
+            }
+        });
 }
 
 function startEventMonitorStoragePools(connectionName, dispatch) {
