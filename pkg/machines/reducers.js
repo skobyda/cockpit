@@ -105,8 +105,8 @@ function networks(state, action) {
             return [...state, network];
         }
 
-        const updatedNetwork = Object.assign({}, state[index], network);
-        return replaceResource({ state, updatedNetwork, index });
+        const updatedResource = Object.assign({}, state[index], network);
+        return replaceResource({ state, updatedResource, index });
     }
     default:
         return state;
