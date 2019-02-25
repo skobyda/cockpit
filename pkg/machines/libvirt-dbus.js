@@ -196,6 +196,19 @@ LIBVIRT_DBUS_PROVIDER = {
         return () => call(connectionName, vmId, 'org.libvirt.Domain', 'AttachDevice', [xmlDesc, flags], TIMEOUT);
     },
 
+    CHANGE_NETWORK_AUTOSTART({
+        connectionName,
+        networkName,
+        autostart,
+    }) {
+        return (dispatch) => call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'NetworkLookupByName', [networkName], TIMEOUT)
+                .then(networkPath => {
+                    const args = ['org.libvirt.Network', 'Autostart', cockpit.variant('b', autostart)];
+
+                    return call(connectionName, networkPath[0], 'org.freedesktop.DBus.Properties', 'Set', args, TIMEOUT);
+                });
+    },
+
     CHANGE_NETWORK_SETTINGS({
         name,
         id: objPath,

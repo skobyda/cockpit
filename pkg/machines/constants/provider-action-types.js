@@ -19,6 +19,7 @@
 
 // --- Provider actions -----------------------------------------
 export const ATTACH_DISK = "ATTACH_DISK";
+export const CHANGE_NETWORK_AUTOSTART = "CHANGE_NETWORK_AUTOSTART";
 export const CHANGE_NETWORK_SETTINGS = "CHANGE_NETWORK_SETTINGS";
 export const CHANGE_NETWORK_STATE = "CHANGE_NETWORK_STATE";
 export const CHANGE_VM_AUTOSTART = "CHANGE_VM_AUTOSTART";
