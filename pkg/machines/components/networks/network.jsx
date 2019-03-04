@@ -27,6 +27,7 @@ import {
 } from '../../helpers.js';
 import { NetworkOverviewTab } from './networkOverviewTab.jsx';
 import { networkActivate, networkDeactivate } from '../../libvirt-dbus.js';
+import { EditNetworkAction } from './editNetworkDialog.jsx';
 
 import cockpit from 'cockpit';
 
@@ -80,7 +81,7 @@ export class Network extends React.Component {
             <ListingRow rowId={idPrefix}
                 columns={cols}
                 tabRenderers={tabRenderers}
-                listingActions={<NetworkActions actionErrorSet={this.actionErrorSet} network={network} />} />
+                listingActions={<NetworkActions actionErrorSet={this.actionErrorSet} network={network} dispatch={dispatch} />} />
         );
     }
 }
@@ -112,7 +113,7 @@ class NetworkActions extends React.Component {
     }
 
     render() {
-        const { network } = this.props;
+        const { network, dispatch } = this.props;
         const id = networkId(network.name, network.connectionName);
 
         return (
@@ -124,8 +125,8 @@ class NetworkActions extends React.Component {
                 { !network.active &&
                 <Button id={`activate-${id}`} onClick={this.onActivate}>
                     {_("Activate")}
-                </Button>
-                }
+                </Button> }
+                <EditNetworkAction dispatch={dispatch} network={network} />
             </React.Fragment>
         );
     }
