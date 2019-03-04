@@ -1208,6 +1208,14 @@ function dbus_client(connectionName) {
     return clientLibvirt[connectionName];
 }
 
+export function networkActivate(connectionName, objPath) {
+    return call(connectionName, objPath, 'org.libvirt.Network', 'Create', [], TIMEOUT);
+}
+
+export function networkDeactivate(connectionName, objPath) {
+    return call(connectionName, objPath, 'org.libvirt.Network', 'Destroy', [], TIMEOUT);
+}
+
 /**
  * Call a Libvirt method
  */
