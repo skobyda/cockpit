@@ -582,12 +582,12 @@ export function getSortedBootOrderDevices(vm) {
 /**
  * Finds, if volumes in a storage pool are used by any VM. If so
  * name of VM is appended to dictionary, which contains arrays of all VMs
- * using a certain pool.
+ * using a certain volume.
  *
  * @param {object} vms
  * @param {object} storagePool
  * @param {array} volumes
- * @returns {array} dictionary
+ * @returns {object}
  */
 export function poolVolumesUsedBy(vms, storagePool, volumes) {
     // Get a dictionary of vmName -> disks for a specific connection

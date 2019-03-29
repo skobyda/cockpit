@@ -1264,6 +1264,20 @@ class TestMachines(NetworkCase):
                                              os_name=config.NOVELL_NETWARE_6,
                                              start_vm=False))
 
+            self.machine.execute("qemu-img create -f qcow2 /var/lib/libvirt/vmTest20.qcow2 128M")
+            self.machine.execute("virsh pool-refresh libvirt")
+
+            # Check choosing existing volume as destination storage
+            createTest(TestMachines.VmDialog(self, "subVmTestCreate20", sourceType='pxe',
+                                             location="Host Device {0}: macvtap".format(iface),
+                                             memory_size=50, memory_size_unit='MiB',
+                                             storage_size=0, storage_size_unit='MiB',
+                                             os_vendor=config.NOVELL_VENDOR,
+                                             os_name=config.NOVELL_NETWARE_6,
+                                             storage_pool="libvirt",
+                                             storage_volume="vmTest20.qcow2",
+                                             start_vm=True,))
+
         # TODO: add use cases with start_vm=True and check that vm started
         # - for install when creating vm
         # - for create vm and then install
@@ -1333,6 +1347,7 @@ class TestMachines(NetworkCase):
                      storage_size=None, storage_size_unit='GiB',
                      os_vendor=None,
                      os_name=None,
+                     storage_pool='Create New Volume', storage_volume='',
                      start_vm=False,
                      delete=True,
                      connection=None):
@@ -1360,6 +1375,8 @@ class TestMachines(NetworkCase):
             self.os_vendor = os_vendor if os_vendor else TestMachines.TestCreateConfig.UNSPECIFIED_VENDOR
             self.os_name = os_name if os_name else TestMachines.TestCreateConfig.OTHER_OS
             self.start_vm = start_vm
+            self.storage_pool = storage_pool
+            self.storage_volume = storage_volume
             self.delete = delete
             self.connection = connection
             if self.connection:
@@ -1444,14 +1461,23 @@ class TestMachines(NetworkCase):
             b.select_from_dropdown("#vendor-select", self.os_vendor, substring=True)
             b.select_from_dropdown("#system-select", self.os_name, substring=True)
 
-            b.set_input_text("#memory-size", str(self.memory_size))
-            b.select_from_dropdown("#memory-size-unit-select", self.memory_size_unit)
+            b.wait_visible("#storage-pool-select")
+            b.select_from_dropdown("#storage-pool-select", self.storage_pool)
 
-            if self.storage_size is None:
+            if self.storage_pool == 'Create New Volume':
+                b.wait_not_present("#storage-volume-select")
+            else:
+                b.wait_visible("#storage-volume-select")
+                b.select_from_dropdown("#storage-volume-select", self.storage_volume)
+
+            if self.storage_size is None or self.storage_pool != 'Create New Volume':
                 b.wait_not_present("#storage-size")
             else:
                 b.set_input_text("#storage-size", str(self.storage_size))
                 b.select_from_dropdown("#storage-size-unit-select", self.storage_size_unit)
+
+            b.set_input_text("#memory-size", str(self.memory_size))
+            b.select_from_dropdown("#memory-size-unit-select", self.memory_size_unit)
 
             b.wait_visible("#start-vm")
             if self.start_vm:
