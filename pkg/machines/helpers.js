@@ -18,6 +18,7 @@
  */
 import cockpit from 'cockpit';
 import VMS_CONFIG from './config.js';
+import { getVmDisksMap } from './libvirt-dbus.js';
 
 const _ = cockpit.gettext;
 
@@ -576,4 +577,43 @@ export function getSortedBootOrderDevices(vm) {
     });
 
     return devices;
+}
+
+/**
+ * Finds, if volumes in a storage pool are used by any VM. If so
+ * name of VM is appended to dictionary, which contains arrays of all VMs
+ * using a certain pool.
+ *
+ * @param {object} vms
+ * @param {object} storagePool
+ * @param {array} volumes
+ * @returns {array} dictionary
+ */
+export function poolVolumesUsedBy(vms, storagePool, volumes) {
+    // Get a dictionary of vmName -> disks for a specific connection
+    const vmDisksMap = getVmDisksMap(vms, storagePool.connectionName);
+
+    // And make it a dictionary of volumeName -> array of Domains using volume
+    let isVolumeUsed = {};
+    for (let i in volumes) {
+        let volumeName = volumes[i].name;
+        const targetPath = storagePool.target ? storagePool.target.path : '';
+        const volumePath = [targetPath, volumeName].join('/');
+        isVolumeUsed[volumeName] = [];
+
+        for (let vmName in vmDisksMap) {
+            const disks = vmDisksMap[vmName];
+
+            for (let i in disks) {
+                let disk = disks[i];
+                if (disk.type == 'volume' && disk.volume == volumeName && disk.pool == storagePool.name)
+                    isVolumeUsed[volumeName].push(vmName);
+
+                if (disk.type == 'file' && disk.source == volumePath)
+                    isVolumeUsed[volumeName].push(vmName);
+            }
+        }
+    }
+
+    return isVolumeUsed;
 }
