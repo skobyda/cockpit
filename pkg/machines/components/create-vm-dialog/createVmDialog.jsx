@@ -431,6 +431,7 @@ class CreateVM extends React.Component {
                                onChange={e => this.onChangedValue('storagePool', e)}
                                enabled={this.state.sourceType != EXISTING_DISK_IMAGE_SOURCE}>
                     <Select.SelectEntry data="NewVolume" key="NewVolume">{"Create New Volume"}</Select.SelectEntry>
+                    <Select.SelectEntry data="NoStorage" key="NoStorage">{"No Storage"}</Select.SelectEntry>
                     <Select.SelectDivider />
                     <optgroup key="Storage Pools" label="Storage Pools">
                         { this.props.storagePools.map(pool => <Select.SelectEntry data={pool.name} key={pool.name}>{pool.name}</Select.SelectEntry>)}
@@ -438,6 +439,7 @@ class CreateVM extends React.Component {
                 </Select.Select>
 
                 { this.state.storagePool !== "NewVolume" &&
+                this.state.storagePool !== "NoStorage" &&
                 <React.Fragment>
                     <label className="control-label" htmlFor="storage-volume-select">
                         {_("Volume")}

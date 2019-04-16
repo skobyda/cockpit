@@ -1278,6 +1278,16 @@ class TestMachines(NetworkCase):
                                              storage_volume="vmTest20.qcow2",
                                              start_vm=True,))
 
+            # Check "No Storage" option (only define VM)
+            createTest(TestMachines.VmDialog(self, "subVmTestCreate21", sourceType='pxe',
+                                             location="Host Device {0}: macvtap".format(iface),
+                                             memory_size=50, memory_size_unit='MiB',
+                                             storage_size=0, storage_size_unit='MiB',
+                                             os_vendor=config.NOVELL_VENDOR,
+                                             os_name=config.NOVELL_NETWARE_6,
+                                             storage_pool="No Storage",
+                                             start_vm=True,))
+
         # TODO: add use cases with start_vm=True and check that vm started
         # - for install when creating vm
         # - for create vm and then install
@@ -1464,7 +1474,7 @@ class TestMachines(NetworkCase):
             b.wait_visible("#storage-pool-select")
             b.select_from_dropdown("#storage-pool-select", self.storage_pool)
 
-            if self.storage_pool == 'Create New Volume':
+            if self.storage_pool == 'Create New Volume' or self.storage_pool == 'No Storage':
                 b.wait_not_present("#storage-volume-select")
             else:
                 b.wait_visible("#storage-volume-select")
@@ -1655,7 +1665,8 @@ class TestMachines(NetworkCase):
             if dialog.sourceType == 'disk_image':
                 b.wait_present("#vm-{0}-disks-vda-device".format(name))
                 b.wait_in_text("#vm-{0}-disks-vda-source td.machines-disks-source-value".format(name), dialog.location)
-            elif dialog.storage_size > 0:
+            # New volume was created or existing volume was already chosen as destination
+            elif dialog.storage_size > 0 or dialog.storage_pool not in ["No Storage", "Create New Volume"]:
                 if b.is_present("#vm-{0}-disks-vda-device".format(name)):
                     b.wait_in_text("#vm-{0}-disks-vda-device".format(name), "disk")
                 else:
