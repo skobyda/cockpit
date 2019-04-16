@@ -19,32 +19,33 @@
 
 import React from 'react';
 
-import * as Select from 'cockpit-components-select.jsx';
 import { LIBVIRT_SYSTEM_CONNECTION, LIBVIRT_SESSION_CONNECTION } from '../helpers.js';
 import cockpit from 'cockpit';
 
 const _ = cockpit.gettext;
 
 export const MachinesConnectionSelector = ({ onValueChanged, dialogValues, loggedUser, id }) => {
-    let connectionUris = [
-        <Select.SelectEntry data={LIBVIRT_SYSTEM_CONNECTION}
-                            key={LIBVIRT_SYSTEM_CONNECTION}>{_("QEMU/KVM System connection")}
-        </Select.SelectEntry>,
-    ];
-
-    // Root user should not be presented the session connection
-    if (loggedUser.id != 0)
-        connectionUris.push(
-            <Select.SelectEntry data={LIBVIRT_SESSION_CONNECTION}
-                key={LIBVIRT_SESSION_CONNECTION}>{_("QEMU/KVM User connection")}
-            </Select.SelectEntry>
-        );
-
     return (
-        <Select.Select id={id}
-                       initial={dialogValues.connectionName}
-                       onChange={value => onValueChanged('connectionName', value)}>
-            {connectionUris}
-        </Select.Select>
+        <fieldset className='form-inline'>
+            <div className='radio'>
+                <label>
+                    <input id={`${id}-createnew`}
+                           type="radio"
+                           name="source"
+                           checked={dialogValues.connectionName === LIBVIRT_SYSTEM_CONNECTION}
+                           onChange={() => onValueChanged('connectionName', LIBVIRT_SYSTEM_CONNECTION)} />
+                    {_("System")}
+                </label>
+                <label>
+                    <input id={`${id}-useexisting`}
+                           type="radio"
+                           name="source"
+                           checked={dialogValues.connectionName === LIBVIRT_SESSION_CONNECTION}
+                           onChange={() => onValueChanged('connectionName', LIBVIRT_SESSION_CONNECTION)}
+                           disabled={loggedUser.id == 0} />
+                    {_("User")}
+                </label>
+            </div>
+        </fieldset>
     );
 };
