@@ -349,16 +349,6 @@ class CreateVM extends React.Component {
 
         return (
             <form className="ct-form-layout">
-                <label className="control-label" htmlFor="connection">
-                    {_("Connection")}
-                </label>
-                <MachinesConnectionSelector id='connection'
-                    dialogValues={this.state}
-                    onValueChanged={this.onChangedValue}
-                    loggedUser={this.props.loggedUser} />
-
-                <hr />
-
                 <label className="control-label" htmlFor="vm-name">
                     {_("Name")}
                 </label>
@@ -377,8 +367,18 @@ class CreateVM extends React.Component {
 
                 <hr />
 
+                <label className="control-label" htmlFor="connection">
+                    {_("Type")}
+                </label>
+                <MachinesConnectionSelector id='connection'
+                    dialogValues={this.state}
+                    onValueChanged={this.onChangedValue}
+                    loggedUser={this.props.loggedUser} />
+
+                <hr />
+
                 <label className="control-label" htmlFor="source-type">
-                    {_("Installation Source Type")}
+                    {_("Source")}
                 </label>
                 <Select.Select id="source-type"
                                initial={this.state.sourceType}
@@ -392,34 +392,9 @@ class CreateVM extends React.Component {
                 </Select.Select>
 
                 <label className="control-label" htmlFor={installationSourceId}>
-                    {_("Installation Source")}
+                    {_("Location")}
                 </label>
                 {installationSourceVal}
-
-                <hr />
-                <label className="control-label" htmlFor="vendor-select">
-                    {_("OS Vendor")}
-                </label>
-                <FormGroup validationState={validationStateOsVendor} bsClass='form-group ct-validation-wrapper'>
-                    <Select.Select id="vendor-select"
-                                   initial={this.state.vendor}
-                                   onChange={e => this.onChangedValue('vendor', e)}>
-                        {vendorSelectEntries}
-                    </Select.Select>
-                    { validationFailed.vendor && this.state.vendor == NOT_SPECIFIED &&
-                    <HelpBlock>
-                        <p className="text-danger">{validationFailed.vendor}</p>
-                    </HelpBlock> }
-                </FormGroup>
-
-                <label className="control-label" htmlFor="vendor-select">
-                    {_("Operating System")}
-                </label>
-                <Select.StatelessSelect id="system-select"
-                                        selected={this.state.os}
-                                        onChange={e => this.onChangedValue('os', e)}>
-                    {osEntries}
-                </Select.StatelessSelect>
 
                 <hr />
 
@@ -473,6 +448,32 @@ class CreateVM extends React.Component {
                                  initialUnit={this.state.memorySizeUnit}
                                  onValueChange={e => this.onChangedEventValue('memorySize', e)}
                                  onUnitChange={e => this.onChangedValue('memorySizeUnit', e)} />
+
+                <hr />
+
+                <label className="control-label" htmlFor="vendor-select">
+                    {_("OS Vendor")}
+                </label>
+                <FormGroup validationState={validationStateOsVendor} bsClass='form-group ct-validation-wrapper'>
+                    <Select.Select id="vendor-select"
+                                   initial={this.state.vendor}
+                                   onChange={e => this.onChangedValue('vendor', e)}>
+                        {vendorSelectEntries}
+                    </Select.Select>
+                    { validationFailed.vendor && this.state.vendor == NOT_SPECIFIED &&
+                    <HelpBlock>
+                        <p className="text-danger">{validationFailed.vendor}</p>
+                    </HelpBlock> }
+                </FormGroup>
+
+                <label className="control-label" htmlFor="vendor-select">
+                    {_("Operating System")}
+                </label>
+                <Select.StatelessSelect id="system-select"
+                                        selected={this.state.os}
+                                        onChange={e => this.onChangedValue('os', e)}>
+                    {osEntries}
+                </Select.StatelessSelect>
 
                 <hr />
 
