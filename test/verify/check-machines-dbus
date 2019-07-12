@@ -177,6 +177,96 @@ class TestMachinesDBus(machineslib.TestMachines):
         b.wait_not_in_text("#vm-subVmTest1-boot-order", bootOrder)
         b.wait_not_present("#boot-order-tooltip")
 
+    def testDiskConfigure(self):
+        b = self.browser
+        m = self.machine
+
+        self.startVm("subVmTest1")
+
+        # prepare libvirt storage pools
+        m.execute("mkdir /mnt/vm_one; chmod a+rwx /mnt/vm_one")
+        m.execute("virsh pool-create-as myPoolOne --type dir --target /mnt/vm_one")
+        m.execute("virsh vol-create-as myPoolOne mydisk --capacity 100M --format raw") # raw support shareable
+        m.execute("virsh vol-create-as myPoolOne mydisk2 --capacity 100M --format raw")
+        m.execute("virsh vol-create-as myPoolOne mydisk3 --capacity 100M --format qcow2")
+        wait(lambda: "mydisk" in m.execute("virsh vol-list myPoolOne"))
+        wait(lambda: "mydisk2" in m.execute("virsh vol-list myPoolOne"))
+        wait(lambda: "mydisk3" in m.execute("virsh vol-list myPoolOne"))
+
+        m.execute("virsh attach-disk --domain subVmTest1 --source /mnt/vm_one/mydisk --target vde --targetbus virtio --persistent")
+        m.execute("virsh attach-disk --domain subVmTest1 --source /mnt/vm_one/mydisk2 --target vdf --targetbus virtio")
+        m.execute("virsh attach-disk --domain subVmTest1 --source /mnt/vm_one/mydisk3 --target vdg --targetbus virtio --subdriver qcow2 --persistent")
+
+        self.login_and_go("/machines")
+        b.wait_in_text("body", "Virtual Machines")
+        b.wait_in_text("tbody tr[data-row-id=vm-subVmTest1] th", "subVmTest1")
+        b.click("tbody tr[data-row-id=vm-subVmTest1] th") # click on the row header
+        b.wait_in_text("#vm-subVmTest1-state", "running")
+        b.click("#vm-subVmTest1-disks") # open the "Disks" subtab
+
+        # Test non-persistent disks do not have configurable readonly and shareable attributes
+        b.wait_not_present("#vm-subVmTest1-disks-vdf-readonly")
+        b.wait_not_present("#vm-subVmTest1-disks-vdf-shareable")
+
+        # Test qcow2 disk has only readonly attribute configurable
+        b.wait_present("#vm-subVmTest1-disks-vdg-readonly")
+        b.wait_not_present("#vm-subVmTest1-disks-vdg-shareable")
+
+        # Test configuration of readonly and shareable attributes
+        initial_readonly = b.get_checked("#vm-subVmTest1-disks-vde-readonly")
+        initial_shareable = b.get_checked("#vm-subVmTest1-disks-vde-shareable")
+
+        # Changing readonly with running VM should show tooltip
+        b.click("#vm-subVmTest1-disks-vde-readonly")
+        # State of checkbox doesn't change while VM is running
+        if initial_readonly:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:checked")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:not(:checked)")
+        b.wait_present("#vm-subVmTest1-disks-vde-readonly-tooltip")
+
+        # Changing shareable with running VM should show tooltip
+        b.click("#vm-subVmTest1-disks-vde-shareable")
+        # State of checkbox doesn't change while VM is running
+        if initial_shareable:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:checked")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:not(:checked)")
+        b.wait_present("#vm-subVmTest1-disks-vde-shareable-tooltip")
+
+        # Shut off VM and see state has changed
+        b.click("#vm-subVmTest1-off-caret")
+        b.click("#vm-subVmTest1-forceOff")
+        b.wait_in_text("#vm-subVmTest1-state", "shut off")
+        # Check change has been applied after shutoff
+        if initial_readonly:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:not(:checked)")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:checked")
+        if initial_shareable:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:not(:checked)")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:checked")
+        # Check tooltip no longer present after shutoff
+        b.wait_not_present("#vm-subVmTest1-disks-vde-readonly-tooltip")
+        b.wait_not_present("#vm-subVmTest1-disks-vde-shareable-tooltip")
+
+        # Change readonly
+        b.click("#vm-subVmTest1-disks-vde-readonly")
+        if initial_readonly:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:checked")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-readonly:not(:checked)")
+        b.wait_not_present("#vm-subVmTest1-disks-vde-readonly-tooltip")
+
+        # Change shareable
+        b.click("#vm-subVmTest1-disks-vde-shareable")
+        if initial_shareable:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:checked")
+        else:
+            b.wait_present("#vm-subVmTest1-disks-vde-shareable:not(:checked)")
+        b.wait_not_present("#vm-subVmTest1-disks-vde-shareable-tooltip")
+
     def testDomainMemorySettings(self):
         b = self.browser
 

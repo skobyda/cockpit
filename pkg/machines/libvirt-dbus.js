@@ -91,6 +91,7 @@ import {
     parseStorageVolumeDumpxml,
     resolveUiState,
     serialConsoleCommand,
+    toggleDiskElement,
     unknownConnectionName,
     updateBootOrder,
     updateMaxMemory,
@@ -1266,6 +1267,22 @@ function updateNetworkIface({ domXml, networkMac, networkState, networkModelType
     }
     console.warn("Can't update network interface element in domXml");
     return null;
+}
+
+export function changeVmDiskReadOnly(connectionName, objPath, target) {
+    return call(connectionName, objPath, 'org.libvirt.Domain', 'GetXMLDesc', [Enum.VIR_DOMAIN_XML_INACTIVE], TIMEOUT)
+            .then(domXml => {
+                let updatedXML = toggleDiskElement(domXml, target, "readonly");
+                return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'DomainDefineXML', [updatedXML], TIMEOUT);
+            });
+}
+
+export function changeVmDiskShareAble(connectionName, objPath, target) {
+    return call(connectionName, objPath, 'org.libvirt.Domain', 'GetXMLDesc', [Enum.VIR_DOMAIN_XML_INACTIVE], TIMEOUT)
+            .then(domXml => {
+                let updatedXML = toggleDiskElement(domXml, target, "shareable");
+                return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'DomainDefineXML', [updatedXML], TIMEOUT);
+            });
 }
 
 export function changeNetworkAutostart(network, autostart, dispatch) {

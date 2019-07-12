@@ -866,6 +866,33 @@ export function resolveUiState(dispatch, name) {
     return result;
 }
 
+export function toggleDiskElement(domXml, diskTarget, elemName) {
+    const domainElem = getDomainElem(domXml);
+
+    let deviceElem = domainElem.getElementsByTagName("devices")[0];
+    let disks = deviceElem.getElementsByTagName("disk");
+
+    for (let i = 0; i < disks.length; i++) {
+        const disk = disks[i];
+        const target = disk.getElementsByTagName("target")[0].getAttribute("dev");
+        if (target == diskTarget) {
+            let shareAbleElem = getSingleOptionalElem(disk, elemName);
+            if (!shareAbleElem) {
+                shareAbleElem = document.createElement(elemName);
+                disk.appendChild(shareAbleElem);
+            } else {
+                shareAbleElem.remove();
+            }
+        }
+    }
+
+    const tmp = document.createElement("div");
+
+    tmp.appendChild(domainElem);
+
+    return tmp.innerHTML;
+}
+
 export function unknownConnectionName(action, libvirtServiceName) {
     return dispatch => {
         return cockpit.user().done(loggedUser => {

@@ -22,7 +22,11 @@ import cockpit from 'cockpit';
 
 import { Listing, ListingRow } from 'cockpit-components-listing.jsx';
 import { convertToUnit, toReadableNumber, units } from "../helpers.js";
+import { changeVmDiskReadOnly, changeVmDiskShareAble } from "../libvirt-dbus.js";
 import RemoveDiskAction from './diskRemove.jsx';
+import WarningInactive from './warningInactive.jsx';
+
+import './vmDisksTab.css';
 
 const _ = cockpit.gettext;
 
@@ -54,14 +58,30 @@ const VmDiskCell = ({ value, id }) => {
     );
 };
 
+const diskPropertyChanged = (vm, diskTarget, property) => {
+    const disk = vm.disks[diskTarget];
+    const inactiveDisk = vm.inactiveXML.disks[diskTarget];
+
+    if (disk && inactiveDisk) // only persistent disks
+        return disk[property] !== inactiveDisk[property];
+    else
+        return false;
+};
+
 const VmDisksTab = ({ idPrefix, vm, disks, actions, renderCapacity, dispatch, provider, onAddErrorNotification }) => {
     const columnTitles = [_("Device")];
-    let renderCapacityUsed, renderReadOnly, renderAdditional;
+    let renderCapacityUsed, renderReadOnly, renderShareAble, renderAdditional;
 
     if (disks && disks.length > 0) {
         renderCapacityUsed = !!disks.find(disk => (!!disk.used));
         renderReadOnly = !!disks.find(disk => (typeof disk.readonly !== "undefined"));
         renderAdditional = !!disks.find(disk => (!!disk.diskExtras));
+        /* Only raw format supports shareable option.
+         * see: https://www.redhat.com/archives/libvir-list/2017-November/msg00617.html
+         * or
+         * see: https://www.ovirt.org/documentation/admin-guide/chap-Virtual_Machine_Disks.html#uploading-a-disk-image-to-a-storage-domain
+         */
+        renderShareAble = !!disks.find(disk => (typeof disk.shareable !== "undefined" && disk.driver && disk.driver.type === "raw"));
 
         if (renderCapacity) {
             if (renderCapacityUsed) {
@@ -72,6 +92,9 @@ const VmDisksTab = ({ idPrefix, vm, disks, actions, renderCapacity, dispatch, pr
         columnTitles.push(_("Bus"));
         if (renderReadOnly) {
             columnTitles.push(_("Readonly"));
+        }
+        if (renderShareAble) {
+            columnTitles.push(_("Shareable"));
         }
         columnTitles.push(_("Source"));
         if (renderAdditional)
@@ -99,7 +122,54 @@ const VmDisksTab = ({ idPrefix, vm, disks, actions, renderCapacity, dispatch, pr
                     columns.push(<VmDiskCell value={disk.bus} id={`${idPrefixRow}-bus`} key={`${idPrefixRow}-bus`} />);
 
                     if (renderReadOnly) {
-                        columns.push(disk.readonly ? _("yes") : _("no"));
+                        // Configuration supported only for persistent disks
+                        if (provider === 'LibvirtDBus' && vm.inactiveXML.disks[disk.target]) {
+                            const readOnly = (
+                                <label className='checkbox-inline'>
+                                    <input id={`${idPrefixRow}-readonly`}
+                                           className='checkbox-listing'
+                                           type="checkbox"
+                                           checked={disk.readonly}
+                                           onChange={() => changeVmDiskReadOnly(vm.connectionName, vm.id, disk.target)} />
+                                    { vm.state === "running" && diskPropertyChanged(vm, disk.target, "readonly") &&
+                                        <WarningInactive iconId={`${idPrefixRow}-readonly-tooltip`} tooltipId={`tip-${idPrefixRow}-readonly`} /> }
+                                </label>
+                            );
+
+                            columns.push(readOnly);
+                        } else {
+                            columns.push(disk.readonly ? _("yes") : _("no"));
+                        }
+                    }
+
+                    if (renderShareAble) {
+                        /* Only raw format supports shareable option.
+                         * see: https://www.redhat.com/archives/libvir-list/2017-November/msg00617.html
+                         * or
+                         * see: https://www.ovirt.org/documentation/admin-guide/chap-Virtual_Machine_Disks.html#uploading-a-disk-image-to-a-storage-domain
+                         */
+                        if (disk.driver && disk.driver.type === "raw") {
+                            // Configuration supported only for persistent disks
+                            if (provider === 'LibvirtDBus' && vm.inactiveXML.disks[disk.target]) {
+                                const shareAble = (
+                                    <label className='checkbox-inline'>
+                                        <input id={`${idPrefixRow}-shareable`}
+                                               className='checkbox-listing'
+                                               type="checkbox"
+                                               checked={disk.shareable}
+                                               onChange={() => changeVmDiskShareAble(vm.connectionName, vm.id, disk.target)} />
+                                        { vm.state === "running" && diskPropertyChanged(vm, disk.target, "shareable") &&
+                                            <WarningInactive iconId={`${idPrefixRow}-shareable-tooltip`} tooltipId={`tip-${idPrefixRow}-shareable`} /> }
+                                    </label>
+                                );
+
+                                columns.push(shareAble);
+                            } else {
+                                columns.push(disk.shareable ? _("yes") : _("no"));
+                            }
+                        } else {
+                            columns.push(null);
+                        }
                     }
 
                     columns.push(disk.diskSourceCell);
