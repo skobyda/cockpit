@@ -16,17 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
  */
+import "form-layout.less";
 import React from 'react';
 import PropTypes from 'prop-types';
 import cockpit from 'cockpit';
 
 import { Listing, ListingRow } from 'cockpit-components-listing.jsx';
-import { convertToUnit, toReadableNumber, units } from "../helpers.js";
+import { convertToUnit, diskPropertyChanged, toReadableNumber, units } from "../helpers.js";
 import { changeVmDiskReadOnly, changeVmDiskShareAble } from "../libvirt-dbus.js";
-import RemoveDiskAction from './diskRemove.jsx';
 import WarningInactive from './warningInactive.jsx';
-
-import './vmDisksTab.css';
 
 const _ = cockpit.gettext;
 
@@ -58,140 +56,41 @@ const VmDiskCell = ({ value, id }) => {
     );
 };
 
-const diskPropertyChanged = (vm, diskTarget, property) => {
-    const disk = vm.disks[diskTarget];
-    const inactiveDisk = vm.inactiveXML.disks[diskTarget];
-
-    if (disk && inactiveDisk) // only persistent disks
-        return disk[property] !== inactiveDisk[property];
-    else
-        return false;
-};
-
-const VmDisksTab = ({ idPrefix, vm, disks, actions, renderCapacity, dispatch, provider, onAddErrorNotification }) => {
-    const columnTitles = [_("Device")];
-    let renderCapacityUsed, renderReadOnly, renderShareAble, renderAdditional;
-
-    if (disks && disks.length > 0) {
-        renderCapacityUsed = !!disks.find(disk => (!!disk.used));
-        renderReadOnly = !!disks.find(disk => (typeof disk.readonly !== "undefined"));
-        renderAdditional = !!disks.find(disk => (!!disk.diskExtras));
-        /* Only raw format supports shareable option.
-         * see: https://www.redhat.com/archives/libvir-list/2017-November/msg00617.html
-         * or
-         * see: https://www.ovirt.org/documentation/admin-guide/chap-Virtual_Machine_Disks.html#uploading-a-disk-image-to-a-storage-domain
-         */
-        renderShareAble = !!disks.find(disk => (typeof disk.shareable !== "undefined" && disk.driver && disk.driver.type === "raw"));
-
-        if (renderCapacity) {
-            if (renderCapacityUsed) {
-                columnTitles.push(_("Used"));
-            }
-            columnTitles.push(_("Capacity"));
-        }
-        columnTitles.push(_("Bus"));
-        if (renderReadOnly) {
-            columnTitles.push(_("Readonly"));
-        }
-        if (renderShareAble) {
-            columnTitles.push(_("Shareable"));
-        }
-        columnTitles.push(_("Source"));
-        if (renderAdditional)
-            columnTitles.push(_("Additional"));
-        // An empty string header is needed for detach actions
-        columnTitles.push("");
+class VmDisksTab extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            readonly: false,
+            shareable: false
+        };
     }
 
-    return (
-        <div className="machines-disks">
-            <Listing compact columnTitles={columnTitles} actions={actions} emptyCaption={_("No disks defined for this VM")}>
-                {disks.map(disk => {
-                    const idPrefixRow = `${idPrefix}-${disk.target || disk.device}`;
-                    const columns = [
-                        { name: <VmDiskCell value={disk.device} id={`${idPrefixRow}-device`} key={`${idPrefixRow}-device`} />, 'header': true },
-                    ];
+    render() {
+        const { idPrefix, vm, disks, actions, renderCapacity, provider } = this.props;
 
-                    if (renderCapacity) {
-                        if (renderCapacityUsed) {
-                            columns.push(<StorageUnit value={disk.used} id={`${idPrefixRow}-used`} key={`${idPrefixRow}-used`} />);
-                        }
-                        columns.push(<StorageUnit value={disk.capacity} id={`${idPrefixRow}-capacity`} key={`${idPrefixRow}-capacity`} />);
-                    }
+        const columnTitles = [""];
+        const disk = disks[0];
+        const idPrefixRow = `${idPrefix}-${disk.target || disk.device}`;
 
-                    columns.push(<VmDiskCell value={disk.bus} id={`${idPrefixRow}-bus`} key={`${idPrefixRow}-bus`} />);
-
-                    if (renderReadOnly) {
-                        // Configuration supported only for persistent disks
-                        if (provider === 'LibvirtDBus' && vm.inactiveXML.disks[disk.target]) {
-                            const readOnly = (
-                                <label className='checkbox-inline'>
-                                    <input id={`${idPrefixRow}-readonly`}
-                                           className='checkbox-listing'
-                                           type="checkbox"
-                                           checked={disk.readonly}
-                                           onChange={() => changeVmDiskReadOnly(vm.connectionName, vm.id, disk.target)} />
-                                    { vm.state === "running" && diskPropertyChanged(vm, disk.target, "readonly") &&
-                                        <WarningInactive iconId={`${idPrefixRow}-readonly-tooltip`} tooltipId={`tip-${idPrefixRow}-readonly`} /> }
-                                </label>
-                            );
-
-                            columns.push(readOnly);
-                        } else {
-                            columns.push(disk.readonly ? _("yes") : _("no"));
-                        }
-                    }
-
-                    if (renderShareAble) {
-                        /* Only raw format supports shareable option.
-                         * see: https://www.redhat.com/archives/libvir-list/2017-November/msg00617.html
-                         * or
-                         * see: https://www.ovirt.org/documentation/admin-guide/chap-Virtual_Machine_Disks.html#uploading-a-disk-image-to-a-storage-domain
-                         */
-                        if (disk.driver && disk.driver.type === "raw") {
-                            // Configuration supported only for persistent disks
-                            if (provider === 'LibvirtDBus' && vm.inactiveXML.disks[disk.target]) {
-                                const shareAble = (
-                                    <label className='checkbox-inline'>
-                                        <input id={`${idPrefixRow}-shareable`}
-                                               className='checkbox-listing'
-                                               type="checkbox"
-                                               checked={disk.shareable}
-                                               onChange={() => changeVmDiskShareAble(vm.connectionName, vm.id, disk.target)} />
-                                        { vm.state === "running" && diskPropertyChanged(vm, disk.target, "shareable") &&
-                                            <WarningInactive iconId={`${idPrefixRow}-shareable-tooltip`} tooltipId={`tip-${idPrefixRow}-shareable`} /> }
-                                    </label>
-                                );
-
-                                columns.push(shareAble);
-                            } else {
-                                columns.push(disk.shareable ? _("yes") : _("no"));
-                            }
-                        } else {
-                            columns.push(null);
-                        }
-                    }
-
-                    columns.push(disk.diskSourceCell);
-                    columns.push(disk.diskExtras);
-
-                    if (provider === 'LibvirtDBus') {
-                        const removeDiskAction = RemoveDiskAction({
-                            dispatch,
-                            vm,
-                            target: disk.target,
-                            idPrefixRow,
-                            onAddErrorNotification,
-                        });
-                        columns.push(removeDiskAction);
-                    }
-
-                    return (<ListingRow key={idPrefixRow} columns={columns} navigateToItem={disk.onNavigate} />);
-                })}
-            </Listing>
-        </div>
-    );
-};
+        const columns = [];
+        const diskActions = (
+            <div key={`${idPrefixRow}-actionshrowehreiuwrw`} className='machines-network-actions'>
+                <input id={`${idPrefix}-readonlyytrytrytry`}
+                       type="checkbox"
+                       checked={this.state.readonly}
+                       onChange={e => this.setState({ readonly: e.target.checked })} />
+            </div>
+        );
+        columns.push(diskActions);
+        return (
+            <div className="machines-disks">
+                <Listing compact columnTitles={columnTitles} actions={actions} emptyCaption={_("No disks defined for this VM")}>
+                    <ListingRow key={idPrefixRow} columns={columns} navigateToItem={disk.onNavigate} />
+                </Listing>
+            </div>
+        );
+    }
+}
 
 VmDisksTab.propTypes = {
     idPrefix: PropTypes.string.isRequired,
@@ -199,7 +98,6 @@ VmDisksTab.propTypes = {
     disks: PropTypes.array.isRequired,
     renderCapacity: PropTypes.bool,
     provider: PropTypes.string,
-    onAddErrorNotification: PropTypes.func.isRequired,
 };
 
 export default VmDisksTab;

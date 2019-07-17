@@ -602,11 +602,11 @@ function getVmDisksMap(vms, connectionName) {
 }
 
 /**
- * Returns a object of key-value pairs of Storage Volume names mapping
- * to arrays of VM names using the relevant Storage Volume
+ * returns a object of key-value pairs of storage volume names mapping
+ * to arrays of vm names using the relevant storage volume
  *
  * @param {object} vms
- * @param {object} storagePool
+ * @param {object} storagepool
  * @returns {object}
  */
 export function getStorageVolumesUsage(vms, storagePool) {
@@ -637,4 +637,24 @@ export function getStorageVolumesUsage(vms, storagePool) {
     }
 
     return isVolumeUsed;
+}
+
+/**
+ * Returns whetever disk property of VM's inactive XML has changed
+ * comparted to live XML.
+ * Mainly used for readonly and shareable properties.
+ *
+ * @param {object} vm
+ * @param {string} diskTarget
+ * @param {string} property
+ * @returns {boolean}
+ */
+export function diskPropertyChanged(vm, diskTarget, property) {
+    const disk = vm.disks[diskTarget];
+    const inactiveDisk = vm.inactiveXML.disks[diskTarget];
+
+    if (disk && inactiveDisk) // only persistent disks
+        return disk[property] !== inactiveDisk[property];
+    else
+        return false;
 }
