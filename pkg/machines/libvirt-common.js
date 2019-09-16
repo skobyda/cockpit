@@ -905,7 +905,7 @@ export function updateDisk(domXml, diskTarget, readonly, shareable) {
     return tmp.innerHTML;
 }
 
-export function unknownConnectionName(action, libvirtServiceName) {
+export function unknownConnectionName(action, libvirtServiceName = undefined) {
     return dispatch => {
         return cockpit.user().done(loggedUser => {
             const promises = Object.getOwnPropertyNames(VMS_CONFIG.Virsh.connections)
@@ -913,7 +913,12 @@ export function unknownConnectionName(action, libvirtServiceName) {
                         // The 'root' user does not have its own qemu:///session just qemu:///system
                         // https://bugzilla.redhat.com/show_bug.cgi?id=1045069
                         connectionName => canLoggedUserConnectSession(connectionName, loggedUser))
-                    .map(connectionName => dispatch(action(connectionName, libvirtServiceName)));
+                    .map(connectionName => {
+                        if (libvirtServiceName)
+                            return dispatch(action(connectionName, libvirtServiceName));
+                        else
+                            return dispatch(action(connectionName));
+                    });
             return Promise.all(promises);
         });
     };
