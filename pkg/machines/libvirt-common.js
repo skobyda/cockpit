@@ -905,7 +905,7 @@ export function updateDisk(domXml, diskTarget, readonly, shareable) {
     return tmp.innerHTML;
 }
 
-export function unknownConnectionName(action, libvirtServiceName = undefined) {
+export function unknownConnectionName(action, libvirtServiceName) {
     return dispatch => {
         return cockpit.user().done(loggedUser => {
             const promises = Object.getOwnPropertyNames(VMS_CONFIG.Virsh.connections)
@@ -914,10 +914,7 @@ export function unknownConnectionName(action, libvirtServiceName = undefined) {
                         // https://bugzilla.redhat.com/show_bug.cgi?id=1045069
                         connectionName => canLoggedUserConnectSession(connectionName, loggedUser))
                     .map(connectionName => {
-                        if (libvirtServiceName)
-                            return dispatch(action(connectionName, libvirtServiceName));
-                        else
-                            return dispatch(action(connectionName));
+                        return dispatch(action(connectionName, libvirtServiceName));
                     });
             return Promise.all(promises);
         });

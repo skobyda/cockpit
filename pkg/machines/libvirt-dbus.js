@@ -506,12 +506,17 @@ LIBVIRT_DBUS_PROVIDER = {
             };
         }
 
+        console.log("RWETWEREWREWRT");
         /* Initial all resources to empty objects before loading them */
-        unknownConnectionName(initInterfaces);
-        unknownConnectionName(initNetworks);
-        unknownConnectionName(initNodeDevices);
-        unknownConnectionName(initStoragePools);
-        unknownConnectionName(initVms);
+        const flags = Enum.VIR_CONNECT_LIST_INTERFACES_ACTIVE | Enum.VIR_CONNECT_LIST_INTERFACES_INACTIVE;
+        unknownConnectionName(connectionName => initResource(connectionName, "ListInterfaces", updateOrAddInterface, flags));
+        unknownConnectionName(connectionName  => {
+            console.log("CODE REACHED THIS PLACE");
+            return initResource(connectionName, "ListNodeDevices", updateOrAddNodeDevice, 0);
+        });
+        unknownConnectionName(connectionName => initResource(connectionName, "ListNetworks", updateOrAddNetwork, 0));
+        unknownConnectionName(connectionName => initResource(connectionName, "ListStoragePools", updateOrAddStoragePool, 0));
+        unknownConnectionName(connectionName => initResource(connectionName, "ListDomains", updateOrAddVm, 0));
         /* Load resource for all of the connections */
         return unknownConnectionName(getApiData, libvirtServiceName);
     },
@@ -1375,46 +1380,13 @@ export function getAllInterfaces(dispatch, connectionName) {
             .fail(ex => console.warn('getAllInterfaces action failed:', JSON.stringify(ex)));
 }
 
-function initInterfaces(connectionName) {
-    const flags = Enum.VIR_CONNECT_LIST_INTERFACES_ACTIVE | Enum.VIR_CONNECT_LIST_INTERFACES_INACTIVE;
-
-    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'ListInterfaces', [flags], TIMEOUT)
-            .then((objPaths) => {
-                return Promise.all(objPaths[0].map(() => updateOrAddInterface({})));
-            })
-            .fail(ex => console.warn('initInterfaces action failed:', JSON.stringify(ex)));
-}
-
-function initNodeDevices(connectionName) {
-    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'ListNodeDevices', [0], TIMEOUT)
+function initResource(connectionName, method, updateOrAddMethod, flags) {
+    console.log("CODE REACHED ANOTHER PLACE");
+    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', method, [flags], TIMEOUT)
             .then(objPaths => {
-                return Promise.all(objPaths[0].map(() => updateOrAddNodeDevice({})));
+                return Promise.all(objPaths[0].map(() => updateOrAddMethod({})));
             })
             .fail(ex => console.warn('initNodeDevices action failed:', JSON.stringify(ex)));
-}
-
-function initNetworks(connectionName) {
-    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'ListNetworks', [0], TIMEOUT)
-            .then(objPaths => {
-                return Promise.all(objPaths[0].map(() => updateOrAddNetwork({})));
-            })
-            .fail(ex => console.warn('initNetworks action failed:', JSON.stringify(ex)));
-}
-
-function initStoragePools(connectionName) {
-    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'ListStoragePools', [0], TIMEOUT)
-            .then(objPaths => {
-                return Promise.all(objPaths[0].map(() => updateOrAddStoragePool({})));
-            })
-            .fail(ex => console.warn('initStoragePools action failed:', JSON.stringify(ex)));
-}
-
-function initVms(connectionName) {
-    return call(connectionName, '/org/libvirt/QEMU', 'org.libvirt.Connect', 'ListDomains', [0], TIMEOUT)
-            .then(objPaths => {
-                return Promise.all(objPaths[0].map(() => updateOrAddVm({})));
-            })
-            .fail(ex => console.warn('initVms action failed:', JSON.stringify(ex)));
 }
 
 export function networkActivate(connectionName, objPath) {
