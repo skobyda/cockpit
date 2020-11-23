@@ -992,6 +992,7 @@ class OsUpdates extends React.Component {
 
             return (
                 <div className="pk-updates">
+                    <RebootSystem close={() => this.setState({ showRebootSystemDialog: false })} onValueChanged={this.onValueChanged} />
                     {unregisteredWarning}
                     <AutoUpdates onInitialized={ enabled => this.setState({ autoUpdatesEnabled: enabled }) } privileged={this.state.privileged} />
                     <div id="available" className="pk-updates--header">
