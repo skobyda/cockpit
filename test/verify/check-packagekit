@@ -214,8 +214,8 @@ class TestUpdates(NoSubManCase):
         m.execute("touch {0}".format(install_lockfile))
 
         # update should succeed and show restart page; cancel
-        b.wait_in_text("#app #updates h1", "Restart recommended")
-        self.assertEqual(b.text("#app #updates button.pf-m-primary"), "Restart now")
+        b.wait_in_text("#app #updates h1", "Your system needs to reboot")
+        self.assertEqual(b.text("#app #updates button.pf-m-primary"), "Continue to reboot")
         b.click("#app #updates button.pf-m-link:contains('Ignore')")
 
         # should go back to updates overview, nothing pending any more
@@ -349,7 +349,7 @@ class TestUpdates(NoSubManCase):
         b.wait_present("#app div.progress-bar")
 
         # should have succeeded and show restart page
-        b.wait_in_text("#app #updates h1", "Restart recommended")
+        b.wait_in_text("#app #updates h1", "Your system needs to reboot")
 
         def assertHistory(path, updates):
             selector = path + " li:nth-child({0})"
@@ -392,7 +392,7 @@ class TestUpdates(NoSubManCase):
         b.wait_present("#app div.progress-bar")
 
         # should have succeeded and show restart
-        b.wait_in_text("#app #updates h1", "Restart recommended")
+        b.wait_in_text("#app #updates h1", "Your system needs to reboot")
         b.wait_present("#app #updates button.pf-m-link:Contains('Ignore')")
 
         # new versions are now installed
@@ -644,8 +644,8 @@ class TestUpdates(NoSubManCase):
         # applying updates works now
         b.click(".pk-updates--header--actions button")
 
-        b.wait_in_text("#app #updates h1", "Restart recommended")
-        self.assertEqual(b.text("#app #updates button.pf-m-primary"), "Restart now")
+        b.wait_in_text("#app #updates h1", "Your system needs to reboot")
+        self.assertEqual(b.text("#app #updates button.pf-m-primary"), "Continue to reboot")
         b.click("#app #updates button.pf-m-link:contains('Ignore')")
 
         # should go back to updates overview, nothing pending any more
@@ -689,7 +689,7 @@ class TestWsUpdate(NoSubManCase):
         m.execute("touch {0}".format(install_lockfile))
 
         # should have succeeded and show restart page; cancel
-        b.wait_in_text("#app #updates h1", "Restart recommended")
+        b.wait_in_text("#app #updates h1", "Your system needs to reboot")
         b.click("#app #updates button.pf-m-link:contains('Ignore')")
         b.wait_in_text("#state", "No updates pending")
 

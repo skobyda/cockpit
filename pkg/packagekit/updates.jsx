@@ -25,9 +25,12 @@ import ReactDOM from 'react-dom';
 
 import moment from "moment";
 import {
-    Button, Tooltip, Page, PageSection, PageSectionVariants,
+    Button, Divider, Modal, TextInput, TextArea, Tooltip,
     DescriptionList, DescriptionListTerm, DescriptionListGroup, DescriptionListDescription,
+    Page, PageSection, PageSectionVariants,
+    Select, SelectVariant, SelectOption,
 } from '@patternfly/react-core';
+import { DatePicker } from '@patternfly/react-datetime';
 import { RebootingIcon, CheckIcon, ExclamationCircleIcon } from "@patternfly/react-icons";
 import { Remarkable } from "remarkable";
 
@@ -36,6 +39,7 @@ import { History, PackageList } from "./history.jsx";
 import { page_status } from "notifications";
 import { EmptyStatePanel } from "cockpit-components-empty-state.jsx";
 import { ListingTable } from 'cockpit-components-table.jsx';
+import { ModalError } from 'cockpit-components-inline-notification.jsx';
 
 import { superuser } from 'superuser';
 import * as PK from "packagekit.js";
@@ -494,12 +498,123 @@ class ApplyUpdates extends React.Component {
     }
 }
 
-const AskRestart = ({ onIgnore, onRestart, history }) => <>
+class RebootSystem extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            date: undefined,
+            statusIsExpanded: false,
+            statusSelected: _("No delay"),
+            message: "",
+        };
+
+        this.dialogErrorSet = this.dialogErrorSet.bind(this);
+        this.onValueChanged = this.onValueChanged.bind(this);
+        this.reboot = this.reboot.bind(this);
+    }
+
+    dialogErrorSet(text, detail) {
+        this.setState({ dialogError: text, dialogErrorDetail: detail });
+    }
+
+    onValueChanged(key, value) {
+        this.setState({ [key]: value });
+    }
+
+    reboot() {
+        const { message } = this.state;
+        // const { date } = ref.current.inputEl.current.value; // TODO date picker
+        const time = {
+            "No delay": "now",
+            "1 minute": "+1",
+            "5 minutes": "+5",
+            "20 minutes": "+20",
+            "40 minutes": "+40",
+            "60 minutes": "+60",
+        };
+        cockpit.hint("restart");
+
+        if (this.state.statusSelected === "No delay") {
+            // give the user a chance to actually read the message
+            this.props.onValueChanged("state", "restart");
+            window.setTimeout(() => {
+                cockpit.spawn(["shutdown", "--reboot", time[this.state.statusSelected], message], { superuser: true, err: "message" })
+                        .fail(ex => {
+                            this.dialogErrorSet("Reboot failed", ex.detail || ex.message || ex);
+                        });
+            }, 5000);
+        } else {
+            cockpit.spawn(["shutdown", "--reboot", time[this.state.statusSelected], message], { superuser: true, err: "message" })
+                    .fail(ex => {
+                        this.dialogErrorSet("Reboot failed", ex.detail || ex.message || ex);
+                    });
+        }
+    }
+
+    render() {
+        const body = (<DescriptionList>
+            <DescriptionListGroup>
+                <DescriptionListTerm>{_("Message to logged in users")}</DescriptionListTerm>
+                <DescriptionListDescription>
+                    <TextArea id="log-message" value={this.state.message} onChange={value => this.onValueChanged("message", value)} resizeOrientation="vertical" aria-label="reboot-message" />
+                </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+                <DescriptionListTerm>{_("Delay")}</DescriptionListTerm>
+                <DescriptionListDescription>
+                    <Select variant={SelectVariant.single}
+                            toggleId="reboot-time"
+                            onToggle={statusIsExpanded => this.onValueChanged("statusIsExpanded", statusIsExpanded)}
+                            onSelect={(event, selection) => this.setState({ statusIsExpanded: false, statusSelected: selection })}
+                            selections={this.state.statusSelected}
+                            isOpen={this.state.statusIsExpanded}
+                            aria-labelledby="reboot-time">
+                        <SelectOption key={0} value={_("No delay")} />
+                        <SelectOption key={1} value={_("1 minute")} />
+                        <SelectOption key={2} value={_("5 minutes")} />
+                        <SelectOption key={3} value={_("20 minutes")} />
+                        <SelectOption key={4} value={_("40 minutes")} />
+                        <SelectOption key={5} value={_("60 minutes")} />
+                        <Divider component="li" key={6} />,
+                        <SelectOption key={7} value={_("Specific time")} />
+                    </Select>
+                    {this.state.statusSelected == "Specific time" && <>
+                        <DatePicker value={this.state.date} onChange={date => this.setState({ date })} aria-label="date picker" />
+                        <TextInput value={this.state.hour} type="number" onChange={value => this.setState({ hour: value })} aria-label="hours input" />
+                        :
+                        <TextInput value={this.state.minute} type="number" onChange={value => this.setState({ minute: value })} aria-label="minutes input" />
+                    </>}
+                </DescriptionListDescription>
+            </DescriptionListGroup>
+        </DescriptionList>);
+
+        return (
+            <Modal position="top" variant="small" id="reboot-system" isOpen onClose={ this.props.close }
+                   title={_("Reboot system")}
+                   footer={
+                       <>
+                           {this.state.dialogError && <ModalError dialogError={this.state.dialogError} dialogErrorDetail={this.state.dialogErrorDetail} />}
+                           <Button variant='primary'
+                               onClick={() => this.reboot()}>
+                               {_("Reboot")}
+                           </Button>
+                           <Button variant='link' className='btn-cancel' onClick={ this.props.close }>
+                               {_("Cancel")}
+                           </Button>
+                           {this.state.restartInProgress && <div className="spinner spinner-sm pull-right" />}
+                       </>
+                   }>
+                {body}
+            </Modal>
+        );
+    }
+}
+
+const AskRestart = ({ onIgnore, open, history }) => <>
     <EmptyStatePanel icon={RebootingIcon}
-                     title={ _("Restart recommended") }
-                     paragraph={ _("Updated packages may require a restart to take effect.") }
-                     action={ _("Restart now") }
-                     onAction={ onRestart}
+                     title={ _("Your system needs to reboot") }
+                     action={ _("Continue to reboot") }
+                     onAction={ open }
                      secondary={ <Button variant="link" onClick={onIgnore}>{_("Ignore")}</Button> } />
 
     <div className="flow-list-blank-slate">
@@ -523,12 +638,14 @@ class OsUpdates extends React.Component {
             history: [],
             unregistered: false,
             privileged: false,
-            autoUpdatesEnabled: undefined
+            autoUpdatesEnabled: undefined,
+            showRebootSystemDialog: false,
         };
         this.handleLoadError = this.handleLoadError.bind(this);
         this.handleRefresh = this.handleRefresh.bind(this);
         this.handleRestart = this.handleRestart.bind(this);
         this.loadUpdates = this.loadUpdates.bind(this);
+        this.onValueChanged = this.onValueChanged.bind(this);
 
         superuser.addEventListener("changed", () => {
             this.setState({ privileged: superuser.allowed });
@@ -566,6 +683,10 @@ class OsUpdates extends React.Component {
                             });
                 })
                 .fail(this.handleLoadError);
+    }
+
+    onValueChanged(key, value) {
+        this.setState({ [key]: value });
     }
 
     handleLoadError(ex) {
@@ -767,7 +888,7 @@ class OsUpdates extends React.Component {
                 .then(transactionPath => {
                     this.watchUpdates(transactionPath)
                             .then(() => {
-                                PK.call(transactionPath, PK.transactionInterface, "UpdatePackages", [0, ids])
+                                PK.call(transactionPath, PK.transactionInterface, "UpdatePackages", [0, [ids[0]]])
                                         .fail(ex => {
                                             // We get more useful error messages through ErrorCode or "PackageKit has crashed", so only
                                             // show this if we don't have anything else
@@ -921,7 +1042,13 @@ class OsUpdates extends React.Component {
                 title: _("Restart recommended")
             });
 
-            return <AskRestart onRestart={this.handleRestart} onIgnore={this.loadUpdates} history={this.state.history} />;
+            return (
+                <>
+                    <AskRestart open={() => this.setState({ showRebootSystemDialog: true })} onIgnore={this.loadUpdates} history={this.state.history} />;
+                    { this.state.showRebootSystemDialog &&
+                        <RebootSystem close={() => this.setState({ showRebootSystemDialog: false })} onValueChanged={this.onValueChanged} />
+                    }
+                </>);
 
         case "restart":
             page_status.set_own(null);
